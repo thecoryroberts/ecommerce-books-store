@@ -8,8 +8,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using System.Text.Json.Serialization;
 using Stripe;
-using Books.Domain.Utilities;
 using Books.Domain.Entities;
+using Pomelo.EntityFrameworkCore.MySql.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,10 +17,15 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllersWithViews();
 
 //DbContext configuration
-builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlServer(
-    builder.Configuration.GetConnectionString("DefaultConnection"),
-    b => b.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName))
-);
+builder.Services.AddDbContext<ApplicationDbContext>(optionsBuilder =>
+    optionsBuilder.UseMySql(
+        builder.Configuration.GetConnectionString("LocalConnectionString"),
+        new MySqlServerVersion(new Version(8, 0, 21)),
+        mySqlOptions =>
+        {
+            mySqlOptions.EnableRetryOnFailure().SchemaBehavior(MySqlSchemaBehavior.Ignore);
+            mySqlOptions.MigrationsAssembly("Books.Data");
+        }));
 
 // Bind stripe settings
 builder.Services.Configure<StripeSettings>(builder.Configuration.GetSection("StripeSettings"));
@@ -30,7 +35,7 @@ builder.Services.Configure<EmailSenderSettings>(builder.Configuration.GetSection
 
 // Bind Twilio settings
 builder.Services.Configure<TwilioSettings>(builder.Configuration.GetSection("TwilioSettings"));
- 
+
 // Authentication and authorization
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(/*options => options.SignIn.RequireConfirmedAccount = true*/)
     .AddEntityFrameworkStores<ApplicationDbContext>()
@@ -60,7 +65,7 @@ builder.Services.ConfigureApplicationCookie(options =>
 {
     options.LoginPath = $"/Identity/Account/Login";
     options.LogoutPath = $"/Identity/Account/Logout";
-    options.AccessDeniedPath= $"/Identity/Account/AccessDenied";
+    options.AccessDeniedPath = $"/Identity/Account/AccessDenied";
 
 });
 
